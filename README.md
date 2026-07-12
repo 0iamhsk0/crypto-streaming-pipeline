@@ -1,5 +1,4 @@
-# Real-Time Crypto Market Analytics Pipeline with LLM-Generated Insights 
-
+# Real-Time Crypto Market Analytics Pipeline
 
 A live streaming data pipeline that ingests real-time cryptocurrency trades from Binance, computes rolling market analytics using PySpark with sub-minute latency, detects statistical anomalies, and leverages the Gemini API to generate live natural-language market commentary.
 
@@ -29,7 +28,7 @@ Binance WebSocket ──▶ Python Producer ──▶ Redpanda (Kafka) ──▶
 │   PySpark Structured Streaming    │
 │  • 1-min tumbling windows         │
 │  • watermarking (late ticks)      │
-│  • rolling z-score anomaly flags  │
+│  • rolling z-score anomaly flag   │
 └──────────┬────────────────────────┘
            │ upserts
            ▼
@@ -38,12 +37,12 @@ Binance WebSocket ──▶ Python Producer ──▶ Redpanda (Kafka) ──▶
 └──────────┬──────────┘
            │ reads
            ▼
-┌──────────────────────┐      ┌──────────────────┐
-│  Streamlit Dashboard │◀───▶│   Gemini API     │
-│  • live price/volume │ batch│  natural-language│
-│  • cross-symbol view │ calls│  commentary      │
-│  • anomaly markers   │      │                  │
-└──────────────────────┘      └──────────────────┘
+ ┌─────────────────────┐        ┌──────────────────┐
+ │ Streamlit Dashboard │◀─────▶│   Gemini API     │
+ │ • live price/volume │  batch │  natural-languag │
+ │ • cross-symbol view │  calls │  commentary      │
+ │ • anomaly markers   │        │                  │
+ └─────────────────────┘        └──────────────────┘
 ```
 
 1. **Ingestion**: A Python producer establishes a live WebSocket connection to Binance, captures raw trade ticks for 5 major pairs (BTC, ETH, BNB, SOL, XRP), and publishes them to a Redpanda topic.

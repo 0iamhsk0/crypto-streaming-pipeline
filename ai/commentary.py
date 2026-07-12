@@ -1,24 +1,3 @@
-"""
-Day 3 — AI commentary layer.
-
-Turns each symbol's latest OHLCV + anomaly stats into a short, plain-English
-market observation using Google's Gemini API (free tier - no credit card
-needed).
-
-IMPORTANT DESIGN CHOICE - batched into ONE call for all symbols:
-Gemini's free tier on this project caps out at just 5 requests/minute AND
-~20 requests/day for gemini-2.5-flash (confirmed via Google AI Studio's
-Rate Limit page - see dashboard/README.md). Calling the API once PER SYMBOL
-(5 calls for 5 symbols) burns the entire daily quota in a handful of
-refresh cycles. Batching all symbols into a single request, asking for a
-JSON object keyed by symbol, cuts quota usage 5x for the same insight -
-this is the actual fix, not just "call it less often."
-
-Still deliberately a single, well-structured API call - not an agent
-framework. There's no multi-step reasoning or tool use happening here
-(just "summarize these numbers"), so a direct call is both simpler AND
-more honest about what's actually being done.
-"""
 
 import json
 
@@ -31,7 +10,7 @@ from google.genai import types
 
 client = genai.Client()  # reads GEMINI_API_KEY from the environment
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.5-flash"
 
 SYSTEM_PROMPT = """You are a market commentary assistant for a live crypto trading dashboard.
 You will be given OHLCV data for the latest 1-minute window of SEVERAL symbols.
@@ -88,7 +67,8 @@ def generate_batch_commentary(windows: dict) -> dict:
         )
         return json.loads(response.text)
     except Exception as e:
-        # Keep it short and readable in the UI - the full exception detail
-        # isn't useful to a dashboard viewer, just the fact that it failed.
+        # Print the full detail to the terminal running Streamlit, for
+        # debugging - but keep the UI message short and clean for viewers.
+        print(f"[Gemini API error] {type(e).__name__}: {e}")
         reason = type(e).__name__
         return {sym: f"(unavailable: {reason})" for sym in windows}

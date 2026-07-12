@@ -1,7 +1,21 @@
+"""
+Reads live OHLCV + anomaly windows from Postgres, auto-refreshes, and shows
+AI-generated commentary (batched across all symbols in one API call - see
+ai/commentary.py for why) plus a cross-symbol overview.
+
+Run:
+    streamlit run dashboard\\app.py
+
+Requires GEMINI_API_KEY set in your environment (or a .env file - see
+.env.example). Without it, charts still work; the commentary box will show
+a placeholder instead of AI text (see ai/commentary.py's fallback).
+"""
+
 import os
 import sys
 import time
 
+# Allow importing ai/commentary.py when run via `streamlit run dashboard/app.py`
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
@@ -23,7 +37,7 @@ SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]
 REFRESH_SECONDS = 15
 LOOKBACK_WINDOWS = 60  # roughly the last hour of 1-minute windows
 
-COMMENTARY_REGEN_SECONDS = 900
+COMMENTARY_REGEN_SECONDS = 180
 
 st.set_page_config(page_title="Crypto Streaming Analytics", layout="wide")
 
