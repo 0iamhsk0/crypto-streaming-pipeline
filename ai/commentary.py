@@ -1,3 +1,27 @@
+"""
+Day 3 — AI commentary layer.
+
+Turns each symbol's latest OHLCV + anomaly stats into a short, plain-English
+market observation using Google's Gemini API (free tier - no credit card
+needed).
+
+IMPORTANT DESIGN CHOICE - batched into ONE call for all symbols:
+As of July 2026, Google began blocking gemini-2.5-flash for some projects
+ahead of its official October 2026 shutdown (a known rollout issue on
+Google's developer forums), and its free tier was in any case a very
+restrictive 5 requests/minute and ~20 requests/day. This project now uses
+gemini-3.5-flash instead, whose free tier is far more generous (15
+requests/min, 1,500/day). Even so, batching all 5 symbols into ONE request
+per cycle (instead of one call per symbol) is still the right design: it's
+a 5x reduction in calls for identical output, and keeps the pipeline
+resilient if free-tier limits tighten again in the future - a deliberate
+choice, not just "call it less often."
+
+Still deliberately a single, well-structured API call - not an agent
+framework. There's no multi-step reasoning or tool use happening here
+(just "summarize these numbers"), so a direct call is both simpler AND
+more honest about what's actually being done.
+"""
 
 import json
 
@@ -60,12 +84,37 @@ def generate_batch_commentary(windows: dict) -> dict:
             contents=user_prompt,
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
-                max_output_tokens=500,
-                temperature=0.3,
+                # gemini-3.5-flash has "thinking" on by default (medium
+                # level), and those internal reasoning tokens count AGAINST
+                # max_output_tokens - not separate from it. Without capping
+                # thinking low, the model can burn the entire token budget
+                # on internal reasoning before writing any actual JSON,
+                # producing a truncated response that fails to parse. This
+                # task is simple summarization, not complex reasoning, so
+                # LOW thinking is appropriate - not a workaround, a correct
+                # setting for the task.
+                thinking_config=types.ThinkingConfig(
+                    thinking_level=types.ThinkingLevel.LOW
+                ),
+                # Generous headroom for 5 symbols' worth of JSON output,
+                # even with some thinking tokens still consumed.
+                max_output_tokens=2000,
                 response_mime_type="application/json",
+                # temperature/top_p/top_k are no longer recommended for
+                # Gemini 3.x models - Google's guidance is to leave these
+                # at their defaults, which are already tuned for this
+                # model family's reasoning behavior.
             ),
         )
-        return json.loads(response.text)
+        # Use raw_decode instead of json.loads: even with response_mime_type
+        # set to JSON, the model can occasionally append trailing content
+        # after a complete, valid JSON object (e.g. a stray newline-separated
+        # remark). raw_decode parses just the first valid JSON value and
+        # ignores anything after it, rather than failing on "Extra data".
+        decoder = json.JSONDecoder()
+        text = response.text.strip()
+        result, _ = decoder.raw_decode(text)
+        return result
     except Exception as e:
         # Print the full detail to the terminal running Streamlit, for
         # debugging - but keep the UI message short and clean for viewers.
