@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.1
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+    ports:
+      - "9092:9092"       # Kafka API (use this from your host machine / Python scripts)
+      - "9644:9644"       # Admin API / metrics
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+
+  console:
+    image: docker.redpanda.com/redpandadata/console:v2.7.0
+    container_name: redpanda-console
+    environment:
+      KAFKA_BROKERS: redpanda:29092
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redpanda
+
+  postgres:
+    image: postgres:16
+    container_name: crypto-postgres
+    environment:
+      POSTGRES_USER: crypto
+      POSTGRES_PASSWORD: crypto_pw
+      POSTGRES_DB: crypto_streaming
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"   # mapped to 5433 - port 5432 conflicts with a native
+                       # Postgres install already on this machine
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  redpanda-data:
+  pg-data:
